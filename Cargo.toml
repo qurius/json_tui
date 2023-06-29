@@ -1,0 +1,18 @@
+[package]
+name = "json_tui"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tui = "0.19"
+crossterm = "0.25"
+clipboard = "0.5"
+serde_json = "1.0.97"
+emoji = "0.2.1"
+clap = "4.3.5"
+
+
+[patch.crates-io]
+crossterm = { git = "https://github.com/yyogo/crossterm.git", branch = "use-select-in-unix" }
