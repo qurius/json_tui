@@ -3,35 +3,30 @@ mod banner;
 mod event;
 mod ui;
 use crate::event::Key;
-use app::{App, Element};
+use app::App;
 
 use clipboard::{ClipboardContext, ClipboardProvider};
 use crossterm::{
     event::{
-        self as crossterm_event, poll, DisableMouseCapture, EnableMouseCapture, Event, KeyCode,
+        DisableMouseCapture, EnableMouseCapture
     },
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-    tty::{self, IsTty},
+    tty::IsTty,
 };
 
 use banner::BANNER;
 use emoji;
 use emoji::symbols::math::PLUS;
 use emoji::symbols::other_symbol::CHECK_MARK;
-use serde_json::{json, Result as Rs, Value};
+use serde_json::{ Result as Rs, Value};
 use std::{
     env,
     error::Error,
-    io::{self, Read},
-    ops::Add,
-    process,
-    time::Duration,
-    vec,
+    io::{self},
 };
 use tui::{
-    backend::{Backend, CrosstermBackend},
-    Frame, Terminal,
+    backend::{Backend, CrosstermBackend}, Terminal,
 };
 pub const PL: &'static str = PLUS.glyph;
 pub const CHK: &'static str = CHECK_MARK.glyph;

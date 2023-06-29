@@ -45,6 +45,7 @@ pub fn draw_ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     // let val: Result<Value, serde_json::Error> = app.json
 
+    // DRAW Output
     match app.elements.as_mut() {
         Some(v) => {
             // let vec_list = Vec::new();
@@ -54,7 +55,7 @@ pub fn draw_ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
             let out_put_list = List::new(vec_list)
                 .block(output)
                 .highlight_style(Style::default().add_modifier(Modifier::BOLD))
-                .highlight_symbol("> ");
+                .highlight_symbol(">> ");
             f.render_stateful_widget(out_put_list, chunks[2], &mut v.state)
         }
         None => {panic!("hereere")}

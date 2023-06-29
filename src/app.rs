@@ -1,6 +1,5 @@
 use std::vec;
-use tui::widgets::{ListItem, ListState};
-use tui::text;
+use tui::widgets::{ListState};
 
 pub struct TabsState<'a> {
     pub titles: Vec<&'a str>,
@@ -147,56 +146,6 @@ impl<'a> App<'a> {
     }
     pub fn set_json(& mut self,js: Option<serde_json::value::Value>) {
         self.json = js;
-    }
-    pub fn get_elements(&'a mut self) -> Option<StatefulList<Element>> {
-        let  mut vec_list = Vec::new();
-        if self.json.as_ref().unwrap().is_object() {
-            self.json
-                .as_mut()
-                .unwrap()
-                .as_object()
-                .unwrap()
-                .iter()
-                .for_each(|(f,j)| {
-                    vec_list.push(
-                        
-                            if j.is_array() {
-                                Element::Array(Index::Key(String::from(f)),j.to_owned())
-                            } else if j.is_object() {
-                                Element::Object(Index::Key(String::from(f)),j.to_owned())
-                            } else if j.is_boolean() {
-                                Element::Bool(Index::Key(String::from(f)),j.to_owned())
-                            } else if j.is_string() {
-                                Element::String(Index::Key(String::from(f)),j.to_owned())
-                            } else if j.is_number() {
-                                Element::Number(Index::Key(String::from(f)),j.to_owned())
-                            } else {
-                                Element::Null(Index::Key(String::from(f)))
-                            }
-                    )
-                });
-        }else {
-            for (k,j) in self.json.as_ref().unwrap().as_array().unwrap().iter().enumerate() {
-                vec_list.push( if j.is_array() {
-                    Element::Array(Index::Key(String::from(k.to_string())),j.to_owned())
-                } else if j.is_object() {
-                    Element::Object(Index::Key(String::from(k.to_string())),j.to_owned())
-                } else if j.is_boolean() {
-                    Element::Bool(Index::Key(String::from(k.to_string())),j.to_owned())
-                } else if j.is_string() {
-                    Element::String(Index::Key(String::from(k.to_string())),j.to_owned())
-                } else if j.is_number() {
-                    Element::Number(Index::Key(String::from(k.to_string())),j.to_owned())
-                } else {
-                    Element::Null(Index::Key(String::from(k.to_string())))
-                });
-            }
-
-        }
-        
-        // self.elements = Some(StatefulList::with_items(vec_list));
-        Some(StatefulList::with_items(vec_list))
-        // self
     }
     pub fn set_elements(&mut self) -> () {
         let  mut vec_list = Vec::new();
