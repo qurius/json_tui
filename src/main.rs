@@ -15,7 +15,7 @@ use crossterm::{
     tty::IsTty,
 };
 
-use banner::BANNER;
+// use banner::BANNER;
 use emoji;
 use emoji::symbols::math::PLUS;
 use emoji::symbols::other_symbol::CHECK_MARK;
@@ -30,7 +30,7 @@ use tui::{
 };
 pub const PL: &'static str = PLUS.glyph;
 pub const CHK: &'static str = CHECK_MARK.glyph;
-use clap::{Arg, Command};
+// use clap::{Command};
 
 fn main() -> Result<(), Box<dyn Error>> {
     // From Args
@@ -75,13 +75,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     // .spawn()
     // .expect("FAILED COMMAND");
 
-    // Displays Command in command line - jt
-    let matches = Command::new(env!("CARGO_PKG_NAME"))
-        .version(env!("CARGO_PKG_VERSION"))
-        .author(env!("CARGO_PKG_AUTHORS"))
-        .about("Command Line utility to view Json Objects")
-        .before_help(BANNER)
-        .after_help("Have Fun!!");
+    // Displays Command in command line - jt 
+    // todo()
+
+    // let matches = Command::new(env!("CARGO_PKG_NAME"))
+    //     .version(env!("CARGO_PKG_VERSION"))
+    //     .author(env!("CARGO_PKG_AUTHORS"))
+    //     .about("Command Line utility to view Json Objects")
+    //     .before_help(BANNER)
+    //     .after_help("Have Fun!!");
 
     // setup terminal
     enable_raw_mode()?;
@@ -108,8 +110,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     //Set Json
     let js = Some(get_json_from_string(&app)?);
     app.set_json(js);
-    // app.set_elements();
-    // let e = app.get_elements();
+    //Set Display Elements
     app.set_elements();
     
 
@@ -121,9 +122,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     // RUN app
     let res = run_app(&mut terminal, &mut app, events);
 
-    match res {
-        Err(e) => panic!("Error is {}", e),
-        _ => println!("no error")
+    if let Err(e) = res {
+        panic!("App failed at {:#?}",e);
     }
 
 
@@ -150,13 +150,11 @@ fn run_app<B: Backend>(
     loop {
         let current_route = app.get_current_route();
         if current_route.len() > 0 {
-            // terminal
+            terminal.draw(|f| ui::draw_ui(f,  app))?;
+            // terminal.draw(|f| ui::draw_routed_ui(f,  app))?;
         }else {
             terminal.draw(|f| ui::draw_ui(f,  app))?;
         }
-        
-
-        // if io::stdin().is_tty() {
         match events.next()? {
             event::Event::Input(key) => {
                 if key == Key::Ctrl('c') {
@@ -167,6 +165,12 @@ fn run_app<B: Backend>(
                 } 
                 else if key == Key::Up {
                     app.elements.as_mut().unwrap().previous();
+                }else if key == Key::Enter {
+                    app.set_route();
+                    app.set_elements();
+                }else if key == Key::Esc && current_route.len() > 0 {
+                    app.pop_route();
+                    app.set_elements();
                 }
                 
             }

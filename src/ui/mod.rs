@@ -2,12 +2,12 @@ use crate::app::{Element, Index};
 
 use super::app::App;
 use tui::{
-    backend::{Backend, CrosstermBackend},
+    backend::{Backend},
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Span, Spans},
     widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
-    Frame, Terminal,
+    Frame,
 };
 
 use emoji::symbols::math::PLUS;
@@ -20,7 +20,11 @@ pub const CHK: &'static str = CHECK_MARK.glyph;
 // }
 
 pub fn draw_ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
-    // TODO: Draw User Input Box
+
+    //Todo : Draw Search UI
+    // draw_search_ui(f , app);
+    
+    //Todo : Draw Route UI
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
         .margin(1)
@@ -62,6 +66,10 @@ pub fn draw_ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     }
 }
 
+// fn draw_search_ui<B: Backend>(f: &mut Frame<'_, B>, app: &mut App<'_>) -> () {
+//     todo!()
+// }
+ 
 pub fn get_list_item(element: &Element) -> ListItem{
     match element {
         Element::Array(k, v) => match k {

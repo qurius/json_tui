@@ -1,5 +1,5 @@
 use std::vec;
-use tui::widgets::{ListState};
+use tui::widgets::ListState;
 
 pub struct TabsState<'a> {
     pub titles: Vec<&'a str>,
@@ -65,21 +65,22 @@ impl<T> StatefulList<T> {
     }
 }
 
-
+#[derive(Debug)]
 pub enum Index {
     Key(String),
 }
-pub enum Element{
-    Bool(Index , serde_json::Value),
-    String(Index , serde_json::Value),
-    Array(Index , serde_json::Value),
-    Object(Index , serde_json::Value),
-    Number(Index , serde_json::Value),
+#[derive(Debug)]
+pub enum Element {
+    Bool(Index, serde_json::Value),
+    String(Index, serde_json::Value),
+    Array(Index, serde_json::Value),
+    Object(Index, serde_json::Value),
+    Number(Index, serde_json::Value),
     Null(Index),
 }
 
 // impl Into for  {
-    
+
 // }
 
 // impl Element {
@@ -119,7 +120,7 @@ pub struct App<'a> {
     pub input_cursor_position: u16,
     pub json: Option<serde_json::Value>,
     pub navigation_stack: Vec<String>,
-    pub elements : Option<StatefulList<Element>>
+    pub elements: Option<StatefulList<Element>>,
 }
 
 pub struct Route {
@@ -134,8 +135,8 @@ impl<'a> App<'a> {
             user_input: String::new(),
             input_cursor_position: 0,
             json: None,
-            navigation_stack: vec![String::new()], 
-            elements : None
+            navigation_stack: vec![String::new()],
+            elements: None,
         }
     }
     pub fn get_current_route(&self) -> String {
@@ -144,55 +145,85 @@ impl<'a> App<'a> {
             None => "".to_owned(), // if for some reason there is no route return the default
         }
     }
-    pub fn set_json(& mut self,js: Option<serde_json::value::Value>) {
+    pub fn set_json(&mut self, js: Option<serde_json::value::Value>) {
         self.json = js;
     }
     pub fn set_elements(&mut self) -> () {
-        let  mut vec_list = Vec::new();
-        if self.json.as_ref().unwrap().is_object() {
-            self.json
-                .as_mut()
+        let mut vec_list = Vec::new();
+        let mut js;
+        if self.navigation_stack.len() > 0 {
+            let s: String = self.navigation_stack.join("/");
+            js = self.json.as_ref().unwrap().pointer(&s);
+        } else {
+            js = self.json.as_ref();
+        }
+
+        if js.as_ref().unwrap().is_object() {
+            js.as_mut()
                 .unwrap()
                 .as_object()
                 .unwrap()
                 .iter()
-                .for_each(|(f,j)| {
-                    vec_list.push(
-                        
-                            if j.is_array() {
-                                Element::Array(Index::Key(String::from(f)),j.to_owned())
-                            } else if j.is_object() {
-                                Element::Object(Index::Key(String::from(f)),j.to_owned())
-                            } else if j.is_boolean() {
-                                Element::Bool(Index::Key(String::from(f)),j.to_owned())
-                            } else if j.is_string() {
-                                Element::String(Index::Key(String::from(f)),j.to_owned())
-                            } else if j.is_number() {
-                                Element::Number(Index::Key(String::from(f)),j.to_owned())
-                            } else {
-                                Element::Null(Index::Key(String::from(f)))
-                            }
-                    )
+                .for_each(|(f, j)| {
+                    vec_list.push(if j.is_array() {
+                        Element::Array(Index::Key(String::from(f)), j.to_owned())
+                    } else if j.is_object() {
+                        Element::Object(Index::Key(String::from(f)), j.to_owned())
+                    } else if j.is_boolean() {
+                        Element::Bool(Index::Key(String::from(f)), j.to_owned())
+                    } else if j.is_string() {
+                        Element::String(Index::Key(String::from(f)), j.to_owned())
+                    } else if j.is_number() {
+                        Element::Number(Index::Key(String::from(f)), j.to_owned())
+                    } else {
+                        Element::Null(Index::Key(String::from(f)))
+                    })
                 });
-        }else {
-            for (k,j) in self.json.as_ref().unwrap().as_array().unwrap().iter().enumerate() {
-                vec_list.push( if j.is_array() {
-                    Element::Array(Index::Key(String::from(k.to_string())),j.to_owned())
+        } else {
+            for (k, j) in js.as_ref().unwrap().as_array().unwrap().iter().enumerate() {
+                vec_list.push(if j.is_array() {
+                    Element::Array(Index::Key(String::from(k.to_string())), j.to_owned())
                 } else if j.is_object() {
-                    Element::Object(Index::Key(String::from(k.to_string())),j.to_owned())
+                    Element::Object(Index::Key(String::from(k.to_string())), j.to_owned())
                 } else if j.is_boolean() {
-                    Element::Bool(Index::Key(String::from(k.to_string())),j.to_owned())
+                    Element::Bool(Index::Key(String::from(k.to_string())), j.to_owned())
                 } else if j.is_string() {
-                    Element::String(Index::Key(String::from(k.to_string())),j.to_owned())
+                    Element::String(Index::Key(String::from(k.to_string())), j.to_owned())
                 } else if j.is_number() {
-                    Element::Number(Index::Key(String::from(k.to_string())),j.to_owned())
+                    Element::Number(Index::Key(String::from(k.to_string())), j.to_owned())
                 } else {
                     Element::Null(Index::Key(String::from(k.to_string())))
                 });
             }
         }
-        // self.elements = Some(StatefulList::with_items(vec_list));
         self.elements = Some(StatefulList::with_items(vec_list));
     }
+    pub fn set_route(&mut self) -> () {
+        let list_state = &self.elements.as_ref().unwrap().state;
+        let selected = list_state.selected().unwrap();
+        let element = self.elements.as_ref().unwrap().items.get(selected);
+
+        // panic!("Selected Element is {:#?}",element);
+
+        match element {
+            Some(e) => match e {
+                Element::Array(k, _v) => match k {
+                    Index::Key(key) =>{ self.navigation_stack.push(key.to_owned());
+                    // panic!("Selected Vec is {:#?}",self.navigation_stack);
+                    }
+                },
+                Element::Object(k, _v) => match k {
+                    Index::Key(key) => self.navigation_stack.push(key.to_owned()),
+                },
+                _ => {}
+            },
+            _ => {}
+        }
+    }
+    pub fn pop_route(&mut self ) -> () {
+        self.navigation_stack.pop();
+    }
+    // self.elements = Some(StatefulList::with_items(vec_list));
 }
-    
+
+// 8378913555
