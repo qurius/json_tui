@@ -123,10 +123,6 @@ pub struct App<'a> {
     pub elements: Option<StatefulList<Element>>,
 }
 
-pub struct Route {
-    pub route: String,
-}
-
 impl<'a> App<'a> {
     pub fn init(data: &str) -> App {
         App {
@@ -141,7 +137,7 @@ impl<'a> App<'a> {
     }
     pub fn get_current_route(&self) -> String {
         match self.navigation_stack.last() {
-            Some(route) => self.navigation_stack.join("."),
+            Some(_) => self.navigation_stack.join("."),
             None => "".to_owned(), // if for some reason there is no route return the default
         }
     }

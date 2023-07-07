@@ -2,8 +2,8 @@ use crate::app::{Element, Index};
 
 use super::app::App;
 use tui::{
-    backend::{Backend},
-    layout::{Constraint, Direction, Layout},
+    backend::Backend,
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Span, Spans},
     widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
@@ -20,23 +20,38 @@ pub const CHK: &'static str = CHECK_MARK.glyph;
 // }
 
 pub fn draw_ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
-
-    //Todo : Draw Search UI
+    // //Todo : Draw Search UI
     // draw_search_ui(f , app);
-    
-    //Todo : Draw Route UI
-    let chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .margin(1)
+
+    let parent_layout = Layout::default()
+        .direction(Direction::Vertical)
         .constraints(
             [
-                Constraint::Percentage(40),
-                Constraint::Percentage(10),
-                Constraint::Percentage(50),
+                Constraint::Length(3),
+                Constraint::Min(7),
             ]
             .as_ref(),
         )
+        .margin(1)
         .split(f.size());
+
+    draw_search_ui(f, app, parent_layout[0]);
+
+    draw_routes(f, app, parent_layout[1]);
+
+    //Todo : Draw Route UI
+}
+
+fn draw_routes<B: Backend>(
+    f: &mut Frame<'_, B>,
+    app: &mut App<'_>,
+    parent_layout: tui::layout::Rect,
+) -> () {
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .margin(1)
+        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)].as_ref())
+        .split(parent_layout);
 
     let input = Block::default().title("Input").borders(Borders::ALL);
     let inputpara = Paragraph::new(app.data)
@@ -45,32 +60,61 @@ pub fn draw_ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     f.render_widget(inputpara, chunks[0]);
     let output = Block::default().title("Output").borders(Borders::ALL);
-    // let outputpara = Paragraph::new("Hello \n world").wrap(Wrap { trim: true }).block(output);
-
-    // let val: Result<Value, serde_json::Error> = app.json
 
     // DRAW Output
     match app.elements.as_mut() {
         Some(v) => {
             // let vec_list = Vec::new();
-            let vec_list : Vec<ListItem<'_>> =  v.items.iter().map(|f| {get_list_item(f)}).collect();
+            let vec_list: Vec<ListItem<'_>> = v.items.iter().map(|f| get_list_item(f)).collect();
 
             // println!("Vector is {:#?}", vec_list);
             let out_put_list = List::new(vec_list)
                 .block(output)
                 .highlight_style(Style::default().add_modifier(Modifier::BOLD))
                 .highlight_symbol(">> ");
-            f.render_stateful_widget(out_put_list, chunks[2], &mut v.state)
+            f.render_stateful_widget(out_put_list, chunks[1], &mut v.state)
         }
-        None => {panic!("hereere")}
+        None => {
+            panic!("hereere")
+        }
     }
 }
 
-// fn draw_search_ui<B: Backend>(f: &mut Frame<'_, B>, app: &mut App<'_>) -> () {
-//     todo!()
-// }
- 
-pub fn get_list_item(element: &Element) -> ListItem{
+fn draw_search_ui<B: Backend>(f: &mut Frame<B>, app: &App, layout_chunk: Rect) -> () {
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(90), Constraint::Percentage(10)].as_ref())
+        .horizontal_margin(1)
+        .split(layout_chunk);
+
+    let search = Block::default().title("Search").borders(Borders::ALL);
+    let inputpara = Paragraph::new(app.user_input.to_owned())
+        .wrap(Wrap { trim: true })
+        .block(search);
+
+    f.render_widget(inputpara, chunks[0]);
+
+    let help = Block::default().title("Help").borders(Borders::ALL);
+
+    let text = vec![Spans::from(vec![
+        Span::raw("Type ?"),
+        Span::styled("line", Style::default().add_modifier(Modifier::ITALIC)),
+    ])];
+
+    // let block = Block::default()
+    //     .title("Help")
+    //     .borders(Borders::ALL)
+    //     .border_style(Style::default().fg(Color::Gray));
+
+    let help_para = Paragraph::new(text)
+        .block(help)
+        .style(Style::default().fg(Color::Gray));
+
+    f.render_widget(help_para, chunks[1]);
+
+}
+
+pub fn get_list_item(element: &Element) -> ListItem {
     match element {
         Element::Array(k, v) => match k {
             Index::Key(s) => ListItem::new(Spans::from(vec![
@@ -131,7 +175,7 @@ pub fn get_list_item(element: &Element) -> ListItem{
                 }),
             ])),
         },
-        Element::Number(k,v ) => match k {
+        Element::Number(k, v) => match k {
             Index::Key(s) => ListItem::new(Spans::from(vec![
                 Span::styled(CHK, Style::default().fg(Color::Red)),
                 Span::raw(" "),
@@ -142,10 +186,10 @@ pub fn get_list_item(element: &Element) -> ListItem{
                 Span::raw(" "),
                 Span::raw(":"),
                 Span::raw(" "),
-                Span::styled(v.to_string(), Style::default().fg(Color::Blue))
+                Span::styled(v.to_string(), Style::default().fg(Color::Blue)),
             ])),
         },
-        Element::String(k,v ) => match k {
+        Element::String(k, v) => match k {
             Index::Key(s) => ListItem::new(Spans::from(vec![
                 Span::styled(CHK, Style::default().fg(Color::Red)),
                 Span::raw(" "),
@@ -156,7 +200,7 @@ pub fn get_list_item(element: &Element) -> ListItem{
                 Span::raw(" "),
                 Span::raw(":"),
                 Span::raw(" "),
-                Span::raw(v.to_string())
+                Span::raw(v.to_string()),
             ])),
         },
         Element::Null(k) => match k {
@@ -171,11 +215,10 @@ pub fn get_list_item(element: &Element) -> ListItem{
                 Span::styled("NULL", Style::default().fg(Color::LightYellow)),
             ])),
         },
-
     }
 }
 
-/* 
+/*
 pub fn draw_output<'a>(app: &'a App) -> Vec<ListItem<'a>> {
     let mut vec_list: Vec<ListItem> = vec![];
     if app.json.as_ref().unwrap().is_array() {
