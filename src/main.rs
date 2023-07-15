@@ -5,6 +5,7 @@ mod ui;
 use crate::event::Key;
 use app::App;
 
+use clap::Args;
 use clipboard::{ClipboardContext, ClipboardProvider};
 use crossterm::{
     event::{
@@ -113,9 +114,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     //Set Display Elements
     app.set_elements();
     
-
-    // println!("The Elementlet Requested is {:#?}",app.json.unwrap()["instructions"][0] );
-
     // process::exit(1);
     let events = event::Events::new(200);
 

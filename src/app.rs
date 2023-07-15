@@ -1,6 +1,8 @@
+use serde_json::Value;
 use std::vec;
 use tui::widgets::ListState;
-
+// use rayon::prelude::*;
+use dashmap::DashMap;
 pub struct TabsState<'a> {
     pub titles: Vec<&'a str>,
     pub index: usize,
@@ -78,41 +80,6 @@ pub enum Element {
     Number(Index, serde_json::Value),
     Null(Index),
 }
-
-// impl Into for  {
-
-// }
-
-// impl Element {
-//     fn getSpan(&self) -> Spans {
-//         match self {
-//             Element::Bool(value) => {
-
-//             Element::String(value) => {
-//                 Spans::from(Span::from("Parth"))
-//             },
-//             Element::Array(value) => {
-//                 Spans::from(Span::from("Parth"))
-//             },
-//             Element::Object(value) => {
-
-//             Element::Number(value) => {
-//             },
-
-//         }
-//     }
-// }
-
-// pub struct Item<'a> {
-//     pub pre_format : Vec<Span<'a>>,
-//     pub post_format : Vec<Span<'a>>,
-//     pub item : &'a str
-// }
-
-// fn elementStyle(e : Element ) -> Span {
-
-// }
-
 pub struct App<'a> {
     pub data: &'a str,
     pub tabs: TabsState<'a>,
@@ -154,6 +121,7 @@ impl<'a> App<'a> {
             js = self.json.as_ref();
         }
 
+        let dashmap: DashMap<String, Value> = DashMap::new();
         if js.as_ref().unwrap().is_object() {
             js.as_mut()
                 .unwrap()
@@ -161,37 +129,18 @@ impl<'a> App<'a> {
                 .unwrap()
                 .iter()
                 .for_each(|(f, j)| {
-                    vec_list.push(if j.is_array() {
-                        Element::Array(Index::Key(String::from(f)), j.to_owned())
-                    } else if j.is_object() {
-                        Element::Object(Index::Key(String::from(f)), j.to_owned())
-                    } else if j.is_boolean() {
-                        Element::Bool(Index::Key(String::from(f)), j.to_owned())
-                    } else if j.is_string() {
-                        Element::String(Index::Key(String::from(f)), j.to_owned())
-                    } else if j.is_number() {
-                        Element::Number(Index::Key(String::from(f)), j.to_owned())
-                    } else {
-                        Element::Null(Index::Key(String::from(f)))
-                    })
+                    dashmap.insert(f.clone(), j.clone());
+                    vec_list.push(get_element(f, j))
                 });
         } else {
             for (k, j) in js.as_ref().unwrap().as_array().unwrap().iter().enumerate() {
-                vec_list.push(if j.is_array() {
-                    Element::Array(Index::Key(String::from(k.to_string())), j.to_owned())
-                } else if j.is_object() {
-                    Element::Object(Index::Key(String::from(k.to_string())), j.to_owned())
-                } else if j.is_boolean() {
-                    Element::Bool(Index::Key(String::from(k.to_string())), j.to_owned())
-                } else if j.is_string() {
-                    Element::String(Index::Key(String::from(k.to_string())), j.to_owned())
-                } else if j.is_number() {
-                    Element::Number(Index::Key(String::from(k.to_string())), j.to_owned())
-                } else {
-                    Element::Null(Index::Key(String::from(k.to_string())))
-                });
+                dashmap.insert(k.to_string(), j.clone());
+                vec_list.push(get_element(&k.to_string(), j));
             }
         }
+
+        // dashmap.into_read_only().iter().filter_map(|key, val| )
+        // panic!("The value of dashmap is {:#?}",dashmap);
         self.elements = Some(StatefulList::with_items(vec_list));
     }
     pub fn set_route(&mut self) -> () {
@@ -204,8 +153,9 @@ impl<'a> App<'a> {
         match element {
             Some(e) => match e {
                 Element::Array(k, _v) => match k {
-                    Index::Key(key) =>{ self.navigation_stack.push(key.to_owned());
-                    // panic!("Selected Vec is {:#?}",self.navigation_stack);
+                    Index::Key(key) => {
+                        self.navigation_stack.push(key.to_owned());
+                        // panic!("Selected Vec is {:#?}",self.navigation_stack);
                     }
                 },
                 Element::Object(k, _v) => match k {
@@ -216,10 +166,24 @@ impl<'a> App<'a> {
             _ => {}
         }
     }
-    pub fn pop_route(&mut self ) -> () {
+    pub fn pop_route(&mut self) -> () {
         self.navigation_stack.pop();
     }
+
     // self.elements = Some(StatefulList::with_items(vec_list));
 }
-
-// 8378913555
+fn get_element(f: &String, j: &Value) -> Element {
+    if j.is_array() {
+        Element::Array(Index::Key(String::from(f.to_string())), j.to_owned())
+    } else if j.is_object() {
+        Element::Object(Index::Key(String::from(f.to_string())), j.to_owned())
+    } else if j.is_boolean() {
+        Element::Bool(Index::Key(String::from(f.to_string())), j.to_owned())
+    } else if j.is_string() {
+        Element::String(Index::Key(String::from(f.to_string())), j.to_owned())
+    } else if j.is_number() {
+        Element::Number(Index::Key(String::from(f.to_string())), j.to_owned())
+    } else {
+        Element::Null(Index::Key(String::from(f.to_string())))
+    }
+}
