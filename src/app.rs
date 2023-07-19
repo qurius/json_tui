@@ -1,8 +1,9 @@
 use serde_json::Value;
 use std::vec;
+use std::io::Cursor;
 use tui::widgets::ListState;
 // use rayon::prelude::*;
-use dashmap::DashMap;
+// use dashmap::DashMap;
 pub struct TabsState<'a> {
     pub titles: Vec<&'a str>,
     pub index: usize,
@@ -67,6 +68,11 @@ impl<T> StatefulList<T> {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Route {
+    Search,
+    Main
+}
 #[derive(Debug)]
 pub enum Index {
     Key(String),
@@ -88,6 +94,7 @@ pub struct App<'a> {
     pub json: Option<serde_json::Value>,
     pub navigation_stack: Vec<String>,
     pub elements: Option<StatefulList<Element>>,
+    pub current_route : Route
 }
 
 impl<'a> App<'a> {
@@ -100,13 +107,20 @@ impl<'a> App<'a> {
             json: None,
             navigation_stack: vec![String::new()],
             elements: None,
+            current_route : Route::Main,
         }
     }
-    pub fn get_current_route(&self) -> String {
+    pub fn get_current_navigation_stack(&self) -> String {
         match self.navigation_stack.last() {
             Some(_) => self.navigation_stack.join("."),
             None => "".to_owned(), // if for some reason there is no route return the default
         }
+    }
+    pub fn get_current_route(&self) -> Route {
+        self.current_route
+    }
+    pub fn set_current_route(&mut self) -> () {
+        self.current_route = Route::Search
     }
     pub fn set_json(&mut self, js: Option<serde_json::value::Value>) {
         self.json = js;
@@ -121,7 +135,7 @@ impl<'a> App<'a> {
             js = self.json.as_ref();
         }
 
-        let dashmap: DashMap<String, Value> = DashMap::new();
+        // let dashmap: DashMap<String, Value> = DashMap::new();
         if js.as_ref().unwrap().is_object() {
             js.as_mut()
                 .unwrap()
@@ -129,12 +143,12 @@ impl<'a> App<'a> {
                 .unwrap()
                 .iter()
                 .for_each(|(f, j)| {
-                    dashmap.insert(f.clone(), j.clone());
+                    // dashmap.insert(f.clone(), j.clone());
                     vec_list.push(get_element(f, j))
                 });
         } else {
             for (k, j) in js.as_ref().unwrap().as_array().unwrap().iter().enumerate() {
-                dashmap.insert(k.to_string(), j.clone());
+                // dashmap.insert(k.to_string(), j.clone());
                 vec_list.push(get_element(&k.to_string(), j));
             }
         }

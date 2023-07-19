@@ -5,7 +5,7 @@ use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Span, Spans},
+    text::{Span, Spans, Text},
     widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
     Frame,
 };
@@ -89,11 +89,20 @@ fn draw_search_ui<B: Backend>(f: &mut Frame<B>, app: &App, layout_chunk: Rect) -
         .split(layout_chunk);
 
     let search = Block::default().title("Search").borders(Borders::ALL);
-    let inputpara = Paragraph::new(app.user_input.to_owned())
+    let searchpara;
+    if app.user_input.len() > 0  {
+        searchpara = Paragraph::new(app.user_input.to_owned())
         .wrap(Wrap { trim: true })
         .block(search);
+    } else {
+        searchpara = Paragraph::new(Text::from("Type / to Search"))
+        .wrap(Wrap { trim: true })
+        .style(Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC))
+        .block(search);
+    }
 
-    f.render_widget(inputpara, chunks[0]);
+
+    f.render_widget(searchpara, chunks[0]);
 
     let help = Block::default().title("Help").borders(Borders::ALL);
 

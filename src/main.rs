@@ -3,7 +3,7 @@ mod banner;
 mod event;
 mod ui;
 use crate::event::Key;
-use app::App;
+use app::{App, Route};
 
 use clap::Args;
 use clipboard::{ClipboardContext, ClipboardProvider};
@@ -146,12 +146,17 @@ fn run_app<B: Backend>(
 ) -> Result<(), Box<dyn Error>> {
     terminal.hide_cursor()?;
     loop {
-        let current_route = app.get_current_route();
-        if current_route.len() > 0 {
+        let nav_stack = app.get_current_navigation_stack();
+        if nav_stack.len() > 0 {
             terminal.draw(|f| ui::draw_ui(f,  app))?;
             // terminal.draw(|f| ui::draw_routed_ui(f,  app))?;
+        }else if app.get_current_route() == Route::Search {
+            terminal.draw(|f| ui::draw_ui(f,  app))?;
+
+            // terminal.draw(|f| ui::draw_search_route(f,  app))?;
         }else {
             terminal.draw(|f| ui::draw_ui(f,  app))?;
+
         }
         match events.next()? {
             event::Event::Input(key) => {
@@ -166,9 +171,11 @@ fn run_app<B: Backend>(
                 }else if key == Key::Enter {
                     app.set_route();
                     app.set_elements();
-                }else if key == Key::Esc && current_route.len() > 0 {
+                }else if key == Key::Esc && nav_stack.len() > 0 {
                     app.pop_route();
                     app.set_elements();
+                }else if key == Key::Char('/') {
+                    app.set_current_route();
                 }
                 
             }
