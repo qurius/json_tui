@@ -231,11 +231,11 @@ fn get_pointer_object(val : &Map<String, Value>, vec : &mut String, fuzzy_data :
         println!("Inner vec is {:#?}", vec);
         println!("Fuzzy vec is {:#?}", fuzzy_data); 
         match item.1 {
-            Value::Object(map) => { vec.push('/'); vec.push_str(item.0) ;  get_pointer_object(map, vec, fuzzy_data)},
+            Value::Object(map) => { vec.push('/'); vec.push_str(item.0) ;  get_pointer_object(map, vec, fuzzy_data); vec.clear();},
             Value::Array(i) => { vec.push('/'); vec.push_str(item.0); get_pointer_array(i, vec, fuzzy_data)},
-            Value::Null => {vec.push_str("/"); vec.push_str(item.0); vec.push_str(" : NULL"); fuzzy_data.push(vec.to_owned());vec.push_str(&original_vec) } ,
-            Value::Bool(i) => {original_vec = vec.to_string(); vec.push_str("/"); vec.push_str(item.0); vec.push_str(" : ");vec.push_str(&i.to_string()); fuzzy_data.push(vec.to_owned()) ;vec.push_str(&original_vec)},
-            Value::Number(i) => {original_vec = vec.to_string(); vec.push_str("/"); vec.push_str(item.0); vec.push_str(" : ");vec.push_str(&i.to_string()); fuzzy_data.push(vec.to_owned());vec.push_str(&original_vec) },
+            Value::Null => {vec.push_str("/"); vec.push_str(item.0); vec.push_str(" : NULL"); fuzzy_data.push(vec.to_owned());vec.clear(); vec.push_str(&original_vec) } ,
+            Value::Bool(i) => {original_vec = vec.to_string(); vec.push_str("/"); vec.push_str(item.0); vec.push_str(" : ");vec.push_str(&i.to_string()); fuzzy_data.push(vec.to_owned());vec.clear(); vec.push_str(&original_vec)},
+            Value::Number(i) => {original_vec = vec.to_string(); vec.push_str("/"); vec.push_str(item.0); vec.push_str(" : ");vec.push_str(&i.to_string()); fuzzy_data.push(vec.to_owned());vec.clear(); vec.push_str(&original_vec) },
             Value::String(i) => {original_vec = vec.to_string(); vec.push_str("/"); vec.push_str(item.0); vec.push_str(" : ");vec.push_str(&i.to_string()); fuzzy_data.push(vec.to_owned()); vec.clear(); vec.push_str(&original_vec) },
         }
     });
@@ -260,15 +260,21 @@ fn get_pointer_object(val : &Map<String, Value>, vec : &mut String, fuzzy_data :
 
 fn get_pointer_array (val: &Vec<Value>, vec : &mut String, fuzzy_data : &mut  Vec<String>) {
     let mut original_vec: String = String::new();
+    println!("Outer Array is {:#?}", val);
+    println!("Outer Array vec is {:#?}", vec);
+    println!("Fuzzy Array vec is {:#?}", fuzzy_data); 
 
     val.iter().enumerate().for_each(|(k,v)|{
+        println!("Inner Array is {:#?}", (k,v));
+        println!("Inner Array Vec is {:#?}", vec);
+        println!("Fuzzy Array vec is {:#?}", fuzzy_data); 
         match v {
             Value::Array(item) => {vec.push('/'); vec.push_str(&k.to_string()); get_pointer_array(item, vec, fuzzy_data)}
             Value::Object(map) => {vec.push('/'); vec.push_str(&k.to_string()); get_pointer_object(map, vec, fuzzy_data)},
-            Value::Null => {original_vec = vec.to_string();vec.push_str("/"); vec.push_str(&k.to_string()); vec.push_str(" : NULL"); fuzzy_data.push(vec.to_owned());vec.push_str(&original_vec) } ,
-            Value::Bool(i) => {original_vec = vec.to_string();vec.push_str("/"); vec.push_str(&k.to_string()); vec.push_str(" : ");vec.push_str(&i.to_string()); fuzzy_data.push(vec.to_owned());vec.push_str(&original_vec) },
-            Value::Number(i) => {original_vec = vec.to_string();;vec.push_str("/"); vec.push_str(&k.to_string()); vec.push_str(" : ");vec.push_str(&i.to_string()); fuzzy_data.push(vec.to_owned()) ;vec.push_str(&original_vec)},
-            Value::String(i) => {original_vec = vec.to_string();vec.push_str("/"); vec.push_str(&k.to_string()); vec.push_str(" : ");vec.push_str(&i.to_string()); fuzzy_data.push(vec.to_owned());vec.push_str(&original_vec) },
+            Value::Null => {original_vec = vec.to_string();vec.push_str("/"); vec.push_str(&k.to_string()); vec.push_str(" : NULL"); fuzzy_data.push(vec.to_owned()); vec.clear(); vec.push_str(&original_vec) } ,
+            Value::Bool(i) => {original_vec = vec.to_string();vec.push_str("/"); vec.push_str(&k.to_string()); vec.push_str(" : ");vec.push_str(&i.to_string()); fuzzy_data.push(vec.to_owned());vec.clear(); vec.push_str(&original_vec) },
+            Value::Number(i) => {original_vec = vec.to_string();;vec.push_str("/"); vec.push_str(&k.to_string()); vec.push_str(" : ");vec.push_str(&i.to_string()); fuzzy_data.push(vec.to_owned()) ;vec.clear(); vec.push_str(&original_vec)},
+            Value::String(i) => {original_vec = vec.to_string();vec.push_str("/"); vec.push_str(&k.to_string()); vec.push_str(" : ");vec.push_str(&i.to_string()); fuzzy_data.push(vec.to_owned());vec.clear(); vec.push_str(&original_vec) },
 
         }
     });
