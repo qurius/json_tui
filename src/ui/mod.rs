@@ -1,4 +1,4 @@
-use crate::app::{Element, Index};
+use crate::app::{Element, Index, Route};
 
 use super::app::App;
 use tui::{
@@ -60,9 +60,18 @@ fn draw_routes<B: Backend>(
         .block(input);
 
     f.render_widget(inputpara, chunks[0]);
-    let output = Block::default().title("Output").borders(Borders::ALL);
+
+    match app.current_route {
+        Route::Main => draw_main_routes(f, app, chunks[1]),
+        Route::Search => draw_search_route(f, app, chunks[1])
+    }
 
     // DRAW Output
+
+}
+fn draw_main_routes<B: Backend>(f: &mut Frame<'_, B>, app : &mut App, area: Rect) -> () {
+    let output = Block::default().title("Output").borders(Borders::ALL);
+
     match app.elements.as_mut() {
         Some(v) => {
             // let vec_list = Vec::new();
@@ -73,14 +82,33 @@ fn draw_routes<B: Backend>(
                 .block(output)
                 .highlight_style(Style::default().add_modifier(Modifier::BOLD))
                 .highlight_symbol(">> ");
-            f.render_stateful_widget(out_put_list, chunks[1], &mut v.state)
+            f.render_stateful_widget(out_put_list, area, &mut v.state)
         }
         None => {
             panic!("hereere")
         }
     }
 }
+fn draw_search_route<B: Backend>(f: &mut Frame<'_, B>, app : &mut App, area: Rect)  {
+    let output = Block::default().title("Output").borders(Borders::ALL);
 
+    match app.fuzzy_elements.as_mut() {
+        Some(v) => {
+            // let vec_list = Vec::new();
+            let vec_list: Vec<ListItem<'_>> = v.items.iter().map(|i| ListItem::new(vec![Spans::from(Span::raw(i))])).collect();
+
+            // println!("Vector is {:#?}", vec_list);
+            let out_put_list = List::new(vec_list)
+                .block(output)
+                .highlight_style(Style::default().add_modifier(Modifier::BOLD))
+                .highlight_symbol(">> ");
+            f.render_stateful_widget(out_put_list, area, &mut v.state);
+        }
+        None => {
+            panic!("hereere")
+        }
+    }
+}
 fn draw_search_ui<B: Backend>(f: &mut Frame<B>, app: &App, layout_chunk: Rect) -> () {
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
@@ -93,9 +121,11 @@ fn draw_search_ui<B: Backend>(f: &mut Frame<B>, app: &App, layout_chunk: Rect) -
     if app.user_input.len() > 0  {
         searchpara = Paragraph::new(app.user_input.to_owned())
         .wrap(Wrap { trim: true })
+        .style(Style::default().fg(Color::LightMagenta))
         .block(search);
+
     } else {
-        searchpara = Paragraph::new(Text::from("Type / to Search"))
+        searchpara = Paragraph::new(Text::from("Type / to Search") )
         .wrap(Wrap { trim: true })
         .style(Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC))
         .block(search);
@@ -103,6 +133,12 @@ fn draw_search_ui<B: Backend>(f: &mut Frame<B>, app: &App, layout_chunk: Rect) -
 
 
     f.render_widget(searchpara, chunks[0]);
+
+    f.set_cursor(                
+        layout_chunk.x + app.user_input.len() as u16 + 2,
+    // Move one line down, from the border to the input line
+        layout_chunk.y + 1,
+    );
 
     let help = Block::default().title("Help").borders(Borders::ALL);
 

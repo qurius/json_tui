@@ -8,9 +8,7 @@ use app::{App, Route};
 use clap::Args;
 use clipboard::{ClipboardContext, ClipboardProvider};
 use crossterm::{
-    event::{
-        DisableMouseCapture, EnableMouseCapture
-    },
+    event::{DisableMouseCapture, EnableMouseCapture},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
     tty::IsTty,
@@ -20,20 +18,25 @@ use crossterm::{
 use emoji;
 use emoji::symbols::math::PLUS;
 use emoji::symbols::other_symbol::CHECK_MARK;
-use serde_json::{ Result as Rs, Value};
+use serde_json::{Result as Rs, Value};
 use std::{
+    backtrace::Backtrace,
     env,
     error::Error,
     io::{self},
+    process,
 };
 use tui::{
-    backend::{Backend, CrosstermBackend}, Terminal,
+    backend::{Backend, CrosstermBackend},
+    Terminal,
 };
 pub const PL: &'static str = PLUS.glyph;
 pub const CHK: &'static str = CHECK_MARK.glyph;
 // use clap::{Command};
 
 fn main() -> Result<(), Box<dyn Error>> {
+    // println!("Custom backtrace: {}", Backtrace::capture());
+
     // From Args
     let args: Vec<String> = env::args().collect();
 
@@ -76,7 +79,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // .spawn()
     // .expect("FAILED COMMAND");
 
-    // Displays Command in command line - jt 
+    // Displays Command in command line - jt
     // todo()
 
     // let matches = Command::new(env!("CARGO_PKG_NAME"))
@@ -111,9 +114,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     //Set Json
     let js = Some(get_json_from_string(&app)?);
     app.set_json(js);
+
     //Set Display Elements
+    // process::exit(1);
     app.set_elements();
-    
+
     // process::exit(1);
     let events = event::Events::new(200);
 
@@ -121,9 +126,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let res = run_app(&mut terminal, &mut app, events);
 
     if let Err(e) = res {
-        panic!("App failed at {:#?}",e);
+        panic!("App failed at {:#?}", e);
     }
-
 
     //Disable the raw mode upon exit from app
     //Leave alternate screen
@@ -134,7 +138,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         DisableMouseCapture
     )?;
     terminal.show_cursor()?;
-
+    // terminal.set_cursor(x, y)
+    // terminal.se
     Ok(())
 }
 
@@ -145,39 +150,41 @@ fn run_app<B: Backend>(
     events: event::Events,
 ) -> Result<(), Box<dyn Error>> {
     terminal.hide_cursor()?;
+    // terminal.set_cursor(2,2).unwrap();
+
     loop {
         let nav_stack = app.get_current_navigation_stack();
-        if nav_stack.len() > 0 {
-            terminal.draw(|f| ui::draw_ui(f,  app))?;
+        let current_route = app.get_current_route();
+        terminal.draw(|f| ui::draw_ui(f, app))?;
             // terminal.draw(|f| ui::draw_routed_ui(f,  app))?;
-        }else if app.get_current_route() == Route::Search {
-            terminal.draw(|f| ui::draw_ui(f,  app))?;
-
-            // terminal.draw(|f| ui::draw_search_route(f,  app))?;
-        }else {
-            terminal.draw(|f| ui::draw_ui(f,  app))?;
-
-        }
+        // if current_route == Route::Search {
+        //     terminal.show_cursor().unwrap();    
+        // }
         match events.next()? {
             event::Event::Input(key) => {
-                if key == Key::Ctrl('c') {
-                    break Ok(());
+                if current_route == Route::Search {
+                    if key == Key::Ctrl('c') {
+                        break Ok(());
+                    }
+                    handle_input(key, app);
+                } else {
+                    if key == Key::Ctrl('c') {
+                        break Ok(());
+                    } else if key == Key::Char('/') {
+                        app.set_current_route(Route::Search);
+                        app.set_fuzzy_elements();
+                    } else if key == Key::Down {
+                        app.elements.as_mut().unwrap().next();
+                    } else if key == Key::Up {
+                        app.elements.as_mut().unwrap().previous();
+                    } else if key == Key::Enter {
+                        app.set_route();
+                        app.set_elements();
+                    } else if key == Key::Esc && nav_stack.len() > 0 {
+                        app.pop_route();
+                        app.set_elements();
+                    }
                 }
-                else if key == Key::Down {
-                    app.elements.as_mut().unwrap().next();
-                } 
-                else if key == Key::Up {
-                    app.elements.as_mut().unwrap().previous();
-                }else if key == Key::Enter {
-                    app.set_route();
-                    app.set_elements();
-                }else if key == Key::Esc && nav_stack.len() > 0 {
-                    app.pop_route();
-                    app.set_elements();
-                }else if key == Key::Char('/') {
-                    app.set_current_route();
-                }
-                
             }
             event::Event::Tick => {} // }
         }
@@ -191,4 +198,28 @@ fn get_json_from_string(app: &App) -> Rs<Value> {
     let v: Value = serde_json::from_str(app.data)?;
     Ok(v)
     // eprint!("Value is {}  " , v);
+}
+fn handle_input(key: Key, app: &mut App) {
+    //Set input
+    //Fuzzy match
+    //Set data
+    
+    // terminal.show_cursor().unwrap();
+    if let Key::Char(charac) = key {
+        app.user_input.push(charac);
+        // terminal.set_cursor(x+1, y).unwrap();
+        app.search_and_set_fuzzy_data();
+    } else if key == Key::Down {
+        app.fuzzy_elements.as_mut().unwrap().next();
+    } else if key == Key::Up {
+        app.fuzzy_elements.as_mut().unwrap().previous();
+    } else if key == Key::Backspace {
+        app.user_input.pop();
+        app.search_after_pop();
+    } else {
+        match key {
+            Key::Ctrl(c) => if c == 'q' {app.user_input.clear(); app.set_current_route(Route::Main)}
+            _ => {}
+        }
+    }
 }
