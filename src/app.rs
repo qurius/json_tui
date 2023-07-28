@@ -1,9 +1,8 @@
-use serde_json::{Value, Map};
+use serde_json::{Map, Value};
 use std::vec;
-use std::io::Cursor;
 use tui::widgets::ListState;
-use skim::prelude::*;
-
+use fuzzy_matcher::FuzzyMatcher;
+use fuzzy_matcher::skim::SkimMatcherV2;
 // use rayon::prelude::*;
 // use dashmap::DashMap;
 pub struct TabsState<'a> {
@@ -73,7 +72,7 @@ impl<T> StatefulList<T> {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Route {
     Search,
-    Main
+    Main,
 }
 #[derive(Debug)]
 pub enum Index {
@@ -88,6 +87,11 @@ pub enum Element {
     Number(Index, serde_json::Value),
     Null(Index),
 }
+
+pub enum ActiveBlock {
+    Search,
+    Output
+}
 pub struct App<'a> {
     pub data: &'a str,
     pub tabs: TabsState<'a>,
@@ -96,7 +100,10 @@ pub struct App<'a> {
     pub json: Option<serde_json::Value>,
     pub navigation_stack: Vec<String>,
     pub elements: Option<StatefulList<Element>>,
-    pub current_route : Route
+    pub current_route: Route,
+    pub fuzzy_elements: Option<StatefulList<String>>,
+    pub active_block: ActiveBlock,
+
 }
 
 impl<'a> App<'a> {
@@ -109,7 +116,9 @@ impl<'a> App<'a> {
             json: None,
             navigation_stack: vec![String::new()],
             elements: None,
-            current_route : Route::Main,
+            current_route: Route::Main,
+            fuzzy_elements: None,
+            active_block : ActiveBlock::Output
         }
     }
     pub fn get_current_navigation_stack(&self) -> String {
@@ -121,8 +130,8 @@ impl<'a> App<'a> {
     pub fn get_current_route(&self) -> Route {
         self.current_route
     }
-    pub fn set_current_route(&mut self) -> () {
-        self.current_route = Route::Search
+    pub fn set_current_route(&mut self , route : Route) -> () {
+        self.current_route = route
     }
     pub fn set_json(&mut self, js: Option<serde_json::value::Value>) {
         self.json = js;
@@ -185,25 +194,62 @@ impl<'a> App<'a> {
     pub fn pop_route(&mut self) -> () {
         self.navigation_stack.pop();
     }
+    // Prepares data for fuzzy search
     pub fn set_fuzzy_elements(&mut self) {
         // borrows json
         // sets josn as 'pointer : item'
         // ex 'x/0/whatever : orange'
-        let mut vec : String = String::new();
-        let mut fuzzy_data = Vec::new();
+
+        let mut vec: String = String::new();
+        let mut fuzzy_data: Vec<String> = Vec::new();
+
+        // For Object
         if self.json.as_ref().unwrap().is_object() {
-            get_pointer_object(self.json.as_ref().unwrap().as_object().unwrap(), &mut vec, &mut fuzzy_data);
-        }else if self.json.as_ref().unwrap().is_array() {
-            get_pointer_array(self.json.as_ref().unwrap().as_array().unwrap(), &mut vec, &mut fuzzy_data);
+            get_pointer_object(
+                self.json.as_ref().unwrap().as_object().unwrap(),
+                &mut vec,
+                &mut fuzzy_data,
+            );
+        } else if self.json.as_ref().unwrap().is_array() {
+            // For Array
+            get_pointer_array(
+                self.json.as_ref().unwrap().as_array().unwrap(),
+                &mut vec,
+                &mut fuzzy_data,
+            );
         }
-
-        eprintln!("fuzzy data is {:#?}", fuzzy_data);
-
-        panic!("fuzzy data is {:#?}", fuzzy_data);
+        self.fuzzy_elements = Some(StatefulList::with_items(fuzzy_data) );
 
     }
+    pub fn search_and_set_fuzzy_data(&mut self) -> () {
 
-    // self.elements = Some(StatefulList::with_items(vec_list));
+
+        let matcher = SkimMatcherV2::default();
+
+        let searched_items=  self.fuzzy_elements
+        .as_ref()
+        .unwrap()
+        .items
+        .iter()
+        .filter(|i| matcher.fuzzy_match(i, &self.user_input).is_some() ).map(|s| s.to_string()).collect::<Vec<String>>();
+
+        
+        self.fuzzy_elements = Some(StatefulList::with_items(searched_items));
+    }
+    pub fn search_after_pop(&mut self)  {
+        self.set_fuzzy_elements();
+        let matcher = SkimMatcherV2::default();
+
+        let searched_items=  self.fuzzy_elements
+        .as_ref()
+        .unwrap()
+        .items
+        .iter()
+        .filter(|i| matcher.fuzzy_match(i, &self.user_input).is_some() ).map(|s| s.to_string()).collect::<Vec<String>>();
+
+        self.fuzzy_elements = Some(StatefulList::with_items(searched_items));
+
+    }
 }
 fn get_element(f: &String, j: &Value) -> Element {
     if j.is_array() {
@@ -221,62 +267,140 @@ fn get_element(f: &String, j: &Value) -> Element {
     }
 }
 
-fn get_pointer_object(val : &Map<String, Value>, vec : &mut String, fuzzy_data : &mut Vec<String>) {
+fn get_pointer_object(val: &Map<String, Value>, vec: &mut String, fuzzy_data: &mut Vec<String>) {
     let mut original_vec: String = String::new();
-    println!("Outer Map is {:#?}", val);
-    println!("Outer vec is {:#?}", vec);
-    println!("Fuzzy vec is {:#?}", fuzzy_data); 
-    val.iter().for_each(|item|{
-        println!("Inner Map is {:#?}", item);
-        println!("Inner vec is {:#?}", vec);
-        println!("Fuzzy vec is {:#?}", fuzzy_data); 
+    // println!("Outer Map is {:#?}", val);
+    // println!("Outer vec is {:#?}", vec);
+    // println!("Fuzzy vec is {:#?}", fuzzy_data);
+    val.iter().for_each(|item| {
+        // println!("Inner Map is {:#?}", item);
+        // println!("Inner vec is {:#?}", vec);
+        // println!("Fuzzy vec is {:#?}", fuzzy_data);
         match item.1 {
-            Value::Object(map) => { original_vec = vec.to_string();vec.push('/'); vec.push_str(item.0) ;  get_pointer_object(map, vec, fuzzy_data);vec.clear();vec.push_str(&original_vec)},
-            Value::Array(i) => { vec.push('/'); vec.push_str(item.0); get_pointer_array(i, vec, fuzzy_data)},
-            Value::Null => {vec.push_str("/"); vec.push_str(item.0); vec.push_str(" : NULL"); fuzzy_data.push(vec.to_owned());vec.clear(); vec.push_str(&original_vec) } ,
-            Value::Bool(i) => {original_vec = vec.to_string(); vec.push_str("/"); vec.push_str(item.0); vec.push_str(" : ");vec.push_str(&i.to_string()); fuzzy_data.push(vec.to_owned());vec.clear(); vec.push_str(&original_vec)},
-            Value::Number(i) => {original_vec = vec.to_string(); vec.push_str("/"); vec.push_str(item.0); vec.push_str(" : ");vec.push_str(&i.to_string()); fuzzy_data.push(vec.to_owned());vec.clear(); vec.push_str(&original_vec) },
-            Value::String(i) => {original_vec = vec.to_string(); vec.push_str("/"); vec.push_str(item.0); vec.push_str(" : ");vec.push_str(&i.to_string()); fuzzy_data.push(vec.to_owned()); vec.clear(); vec.push_str(&original_vec) },
+            Value::Object(map) => {
+                original_vec = vec.to_string();
+                vec.push('/');
+                vec.push_str(item.0);
+                get_pointer_object(map, vec, fuzzy_data);
+                vec.clear();
+                vec.push_str(&original_vec)
+            }
+            Value::Array(i) => {
+                original_vec = vec.to_string();
+                vec.push('/');
+                vec.push_str(item.0);
+                get_pointer_array(i, vec, fuzzy_data);
+                vec.clear();
+                vec.push_str(&original_vec)
+            }
+            Value::Null => {
+                vec.push_str("/");
+                vec.push_str(item.0);
+                vec.push_str(" : NULL");
+                fuzzy_data.push(vec.to_owned());
+                vec.clear();
+                vec.push_str(&original_vec)
+            }
+            Value::Bool(i) => {
+                original_vec = vec.to_string();
+                vec.push_str("/");
+                vec.push_str(item.0);
+                vec.push_str(" : ");
+                vec.push_str(&i.to_string());
+                fuzzy_data.push(vec.to_owned());
+                vec.clear();
+                vec.push_str(&original_vec)
+            }
+            Value::Number(i) => {
+                original_vec = vec.to_string();
+                vec.push_str("/");
+                vec.push_str(item.0);
+                vec.push_str(" : ");
+                vec.push_str(&i.to_string());
+                fuzzy_data.push(vec.to_owned());
+                vec.clear();
+                vec.push_str(&original_vec)
+            }
+            Value::String(i) => {
+                original_vec = vec.to_string();
+                vec.push_str("/");
+                vec.push_str(item.0);
+                vec.push_str(" : ");
+                vec.push_str(&i.to_string());
+                fuzzy_data.push(vec.to_owned());
+                vec.clear();
+                vec.push_str(&original_vec)
+            }
         }
     });
-    
 }
 
-// fn get_pointer_object(val : &Map<String, Value>, vec : &mut String) {
-//     val.iter().map(|item|{
-//         match item.1 {
-//             Value::Object(map) => { vec.push('/'); vec.push_str(item.0) ;  get_pointer_object(map, vec)},
-//             Value::Array(i) => { vec.push('/'); vec.push_str(item.0); get_pointer_array(i, vec)},
-//             _ => {vec.push_str("/"); vec.push_str(item.0); vec } 
-
-//         }
-
-//     }).fold(Vec::new(), |acc, item|{
-
-//     });
-    
-// }
-
-
-fn get_pointer_array (val: &Vec<Value>, vec : &mut String, fuzzy_data : &mut  Vec<String>) {
+fn get_pointer_array(val: &Vec<Value>, vec: &mut String, fuzzy_data: &mut Vec<String>) {
     let mut original_vec: String = String::new();
-    println!("Outer Array is {:#?}", val);
-    println!("Outer Array vec is {:#?}", vec);
-    println!("Fuzzy Array vec is {:#?}", fuzzy_data); 
+    // println!("Outer Array is {:#?}", val);
+    // println!("Outer Array vec is {:#?}", vec);
+    // println!("Fuzzy Array vec is {:#?}", fuzzy_data);
 
-    val.iter().enumerate().for_each(|(k,v)|{
-        println!("Inner Array is {:#?}", (k,v));
-        println!("Inner Array Vec is {:#?}", vec);
-        println!("Fuzzy Array vec is {:#?}", fuzzy_data); 
+    val.iter().enumerate().for_each(|(k, v)| {
+        // println!("Inner Array is {:#?}", (k, v));
+        // println!("Inner Array Vec is {:#?}", vec);
+        // println!("Fuzzy Array vec is {:#?}", fuzzy_data);
         match v {
-            Value::Array(item) => {original_vec = vec.to_string();vec.push('/'); vec.push_str(&k.to_string()); get_pointer_array(item, vec, fuzzy_data);vec.clear();vec.push_str(&original_vec)}
-            Value::Object(map) => {original_vec = vec.to_string();vec.push('/'); vec.push_str(&k.to_string()); get_pointer_object(map, vec, fuzzy_data); vec.clear();vec.push_str(&original_vec)},
-            Value::Null => {original_vec = vec.to_string();vec.push_str("/"); vec.push_str(&k.to_string()); vec.push_str(" : NULL"); fuzzy_data.push(vec.to_owned()); vec.clear(); vec.push_str(&original_vec) } ,
-            Value::Bool(i) => {original_vec = vec.to_string();vec.push_str("/"); vec.push_str(&k.to_string()); vec.push_str(" : ");vec.push_str(&i.to_string()); fuzzy_data.push(vec.to_owned());vec.clear(); vec.push_str(&original_vec) },
-            Value::Number(i) => {original_vec = vec.to_string();;vec.push_str("/"); vec.push_str(&k.to_string()); vec.push_str(" : ");vec.push_str(&i.to_string()); fuzzy_data.push(vec.to_owned()) ;vec.clear(); vec.push_str(&original_vec)},
-            Value::String(i) => {original_vec = vec.to_string();vec.push_str("/"); vec.push_str(&k.to_string()); vec.push_str(" : ");vec.push_str(&i.to_string()); fuzzy_data.push(vec.to_owned());vec.clear(); vec.push_str(&original_vec) },
-
+            Value::Array(item) => {
+                original_vec = vec.to_string();
+                vec.push('/');
+                vec.push_str(&k.to_string());
+                get_pointer_array(item, vec, fuzzy_data);
+                vec.clear();
+                vec.push_str(&original_vec)
+            }
+            Value::Object(map) => {
+                original_vec = vec.to_string();
+                vec.push('/');
+                vec.push_str(&k.to_string());
+                get_pointer_object(map, vec, fuzzy_data);
+                vec.clear();
+                vec.push_str(&original_vec)
+            }
+            Value::Null => {
+                original_vec = vec.to_string();
+                vec.push_str("/");
+                vec.push_str(&k.to_string());
+                vec.push_str(" : NULL");
+                fuzzy_data.push(vec.to_owned());
+                vec.clear();
+                vec.push_str(&original_vec)
+            }
+            Value::Bool(i) => {
+                original_vec = vec.to_string();
+                vec.push_str("/");
+                vec.push_str(&k.to_string());
+                vec.push_str(" : ");
+                vec.push_str(&i.to_string());
+                fuzzy_data.push(vec.to_owned());
+                vec.clear();
+                vec.push_str(&original_vec)
+            }
+            Value::Number(i) => {
+                original_vec = vec.to_string();
+                vec.push_str("/");
+                vec.push_str(&k.to_string());
+                vec.push_str(" : ");
+                vec.push_str(&i.to_string());
+                fuzzy_data.push(vec.to_owned());
+                vec.clear();
+                vec.push_str(&original_vec)
+            }
+            Value::String(i) => {
+                original_vec = vec.to_string();
+                vec.push_str("/");
+                vec.push_str(&k.to_string());
+                vec.push_str(" : ");
+                vec.push_str(&i.to_string());
+                fuzzy_data.push(vec.to_owned());
+                vec.clear();
+                vec.push_str(&original_vec)
+            }
         }
     });
-    
-}  
+}
